@@ -1,0 +1,105 @@
+/* --- Authentication Page Styles --- */
+
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 200px); /* Adjust based on header/footer height */
+    padding: 40px 0;
+}
+
+.auth-form-wrapper {
+    width: 100%;
+    max-width: 450px;
+    background-color: var(--card-background-color);
+    padding: 40px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.auth-form-wrapper h1 {
+    text-align: center;
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+}
+
+.auth-form-wrapper p {
+    text-align: center;
+    color: var(--subtle-text-color);
+    margin-bottom: 30px;
+}
+
+.auth-form .form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.auth-form .btn-primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1rem;
+}
+
+#forgot-password-link {
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    margin-top: 10px;
+    display: block;
+    text-align: right;
+}
+
+.auth-switch {
+    margin-top: 30px !important;
+    font-size: 1rem;
+}
+
+.auth-switch a {
+    color: var(--primary-color);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+/* Consent Form Styling */
+.consent-group {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.consent-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.consent-text {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    font-size: 0.875rem;
+    color: var(--subtle-text-color);
+    margin-bottom: 15px;
+}
+.consent-text p {
+    text-align: left;
+    margin-bottom: 10px;
+}
+
+.consent-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.consent-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+.consent-checkbox label {
+    font-weight: normal;
+    margin-bottom: 0;
+}

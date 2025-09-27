@@ -1,0 +1,139 @@
+/* --- Gamification Styles --- */
+
+/* Hide gamification elements by default */
+.gamification-element {
+    display: none;
+}
+
+/* Show elements based on user's research group */
+[data-group="2"] .gamification-element[data-group-show~="2"],
+[data-group="3"] .gamification-element[data-group-show~="3"],
+[data-group="4"] .gamification-element[data-group-show~="4"] {
+    display: block;
+}
+
+/* Special handling for flex/grid items */
+[data-group="3"] .xp-counter,
+[data-group="4"] .xp-counter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--subtle-text-color);
+}
+
+
+/* --- XP Counter (Navbar) --- */
+.xp-counter {
+    font-weight: 500;
+}
+
+.xp-counter progress {
+    width: 100px;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.xp-counter progress::-webkit-progress-bar {
+    background-color: var(--border-color);
+}
+
+.xp-counter progress::-webkit-progress-value {
+    background-color: var(--primary-color);
+}
+
+
+/* --- Achievement Badges --- */
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 20px;
+}
+
+.achievement-badge {
+    text-align: center;
+    cursor: pointer;
+}
+
+.achievement-badge.unlocked .badge-icon {
+    filter: grayscale(0);
+    opacity: 1;
+}
+
+.achievement-badge.locked .badge-icon {
+    filter: grayscale(1);
+    opacity: 0.5;
+}
+
+.badge-icon {
+    width: 64px;
+    height: 64px;
+    background-color: var(--border-color);
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.achievement-badge:hover .badge-icon {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(0, 122, 255, 0.3);
+}
+
+.badge-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.badge-description {
+    font-size: 0.8rem;
+    color: var(--subtle-text-color);
+    display: none; /* Shown in tooltips or modals */
+}
+
+/* --- Profile Page: XP and Level --- */
+.xp-level-card .level-display {
+    text-align: center;
+    margin-bottom: 15px;
+}
+.level-label {
+    font-size: 1rem;
+    color: var(--subtle-text-color);
+}
+.level-number {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    line-height: 1;
+}
+.xp-bar-container {
+    width: 100%;
+}
+#profile-xp-progress {
+    width: 100%;
+    height: 12px;
+    margin-bottom: 5px;
+}
+.xp-text {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--subtle-text-color);
+}
+
+
+/* --- Leaderboard (Dashboard) --- */
+.leaderboard-card .data-table td:first-child {
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+#user-rank-display {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--subtle-text-color);
+}

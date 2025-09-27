@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}My Portfolio{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/portfolio.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="portfolio-header">
+    <h1>My Portfolio</h1>
+</div>
+
+<!-- Key Metrics -->
+<div class="metrics-grid">
+    <div class="card metric-card">
+        <span class="label">Total Portfolio Value</span>
+        <span class="value" id="portfolio-total-value">$0.00</span>
+    </div>
+    <div class="card metric-card">
+        <span class="label">Total Realized P&L</span>
+        <span class="value" id="portfolio-realized-pnl" data-status="neutral">$0.00</span>
+    </div>
+    <div class="card metric-card">
+        <span class="label">Total Unrealized P&L</span>
+        <span class="value" id="portfolio-unrealized-pnl" data-status="neutral">$0.00</span>
+    </div>
+    <div class="card metric-card">
+        <span class="label">Cash Balance</span>
+        <span class="value" id="portfolio-cash-balance">$0.00</span>
+    </div>
+</div>
+
+<div class="portfolio-layout">
+    <!-- Left Panel: Holdings -->
+    <div class="card holdings-card">
+        <div class="card-header">
+            <h2>Current Holdings</h2>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Quantity</th>
+                        <th>Avg. Cost</th>
+                        <th>Current Price</th>
+                        <th>Total Value</th>
+                        <th>Unrealized P&L</th>
+                    </tr>
+                </thead>
+                <tbody id="holdings-table-body">
+                    <!-- Holdings will be loaded here by JS -->
+                    <tr><td colspan="6">Loading holdings...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Right Panel: Performance Chart -->
+    <div class="card performance-chart-card">
+        <div class="card-header">
+            <h2>Portfolio Performance</h2>
+        </div>
+        <div class="card-body">
+            <canvas id="performance-chart"></canvas>
+            <p id="performance-chart-placeholder">Trade history is needed to show performance.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction History -->
+<div class="card transaction-history-card">
+    <div class="card-header">
+        <h2>Transaction History</h2>
+        <div class="filter-controls">
+            <label for="tx-filter">Filter:</label>
+            <select id="tx-filter">
+                <option value="all">All</option>
+                <option value="BUY">Buys</option>
+                <option value="SELL">Sells</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Symbol</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Total Amount</th>
+                </tr>
+            </thead>
+            <tbody id="transactions-table-body">
+                <!-- Transactions will be loaded here by JS -->
+                <tr><td colspan="6">Loading transaction history...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/portfolio.js') }}"></script>
+{% endblock %}

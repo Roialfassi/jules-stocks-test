@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Trading{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/trading.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="trading-container">
+    <!-- Left Panel: Search, Info, and Trade Forms -->
+    <div class="trading-panel">
+        <!-- Asset Search -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Search Asset</h2>
+            </div>
+            <div class="card-body">
+                <div class="search-wrapper">
+                    <input type="text" id="asset-search-input" placeholder="e.g., AAPL, BTC-USD">
+                    <div id="search-results" class="search-results-dropdown"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Asset Information and Trade Forms -->
+        <div id="asset-display" class="card hidden">
+            <div class="card-header">
+                <h2 id="asset-name"></h2>
+                <span id="asset-symbol" class="asset-symbol-tag"></span>
+            </div>
+            <div class="card-body">
+                <div class="price-display">
+                    <span id="asset-price" class="price-large">$0.00</span>
+                    <span id="asset-change" class="price-change" data-status="neutral">$0.00 (0.00%)</span>
+                </div>
+
+                <div class="trade-forms-container">
+                    <!-- Buy Form -->
+                    <form id="buy-form" class="trade-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="symbol" id="buy-symbol">
+                        <h3>Buy</h3>
+                        <div class="form-group">
+                            <label for="buy-quantity">Quantity</label>
+                            <input type="number" id="buy-quantity" name="quantity" step="any" min="0" placeholder="0.0">
+                        </div>
+                        <div class="trade-summary">
+                            <span>Estimated Cost:</span>
+                            <span id="buy-estimated-cost">$0.00</span>
+                        </div>
+                        <button type="submit" class="btn btn-buy">Buy</button>
+                    </form>
+
+                    <!-- Sell Form -->
+                    <form id="sell-form" class="trade-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="symbol" id="sell-symbol">
+                        <h3>Sell</h3>
+                        <div class="form-group">
+                            <label for="sell-quantity">Quantity</label>
+                            <input type="number" id="sell-quantity" name="quantity" step="any" min="0" placeholder="0.0">
+                        </div>
+                         <div class="trade-summary">
+                            <span>Estimated Proceeds:</span>
+                            <span id="sell-estimated-proceeds">$0.00</span>
+                        </div>
+                        <button type="submit" class="btn btn-sell">Sell</button>
+                    </form>
+                </div>
+                <div id="trade-form-error" class="error-message general-error"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Chart -->
+    <div class="chart-panel card">
+         <div class="card-header">
+            <h2>Price History</h2>
+            <div class="chart-controls">
+                <button class="chart-period-btn active" data-period="1mo">1M</button>
+                <button class="chart-period-btn" data-period="3mo">3M</button>
+                <button class="chart-period-btn" data-period="6mo">6M</button>
+                <button class="chart-period-btn" data-period="1y">1Y</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <canvas id="price-chart"></canvas>
+             <p id="chart-placeholder">Search for an asset to display its price chart.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Trade Confirmation Modal -->
+<div id="confirmation-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <span class="modal-close" id="modal-close-btn">&times;</span>
+        <h2 id="modal-title">Confirm Trade</h2>
+        <p id="modal-summary"></p>
+        <div class="modal-actions">
+            <button id="modal-confirm-btn" class="btn btn-primary">Confirm</button>
+            <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/trading.js') }}"></script>
+{% endblock %}

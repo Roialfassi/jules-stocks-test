@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="profile-header">
+    <h1>User Profile</h1>
+</div>
+
+<div class="profile-grid">
+    <!-- User Information -->
+    <div class="card profile-info-card">
+        <div class="card-header">
+            <h2>Account Information</h2>
+        </div>
+        <div class="card-body">
+            <p><strong>Username:</strong> <span id="profile-username"></span></p>
+            <p><strong>Email:</strong> <span id="profile-email"></span></p>
+            <p><strong>Participant ID:</strong> <span id="profile-participant-id"></span></p>
+            <p><strong>Research Group:</strong> <span id="profile-research-group"></span></p>
+            <p><strong>Member Since:</strong> <span id="profile-created-at"></span></p>
+        </div>
+    </div>
+
+    <!-- Trading Statistics -->
+    <div class="card trading-stats-card">
+        <div class="card-header">
+            <h2>Trading Statistics</h2>
+        </div>
+        <div class="card-body">
+            <p><strong>Total Trades:</strong> <span id="stats-total-trades">0</span></p>
+            <p><strong>Winning Trades:</strong> <span id="stats-winning-trades">0</span></p>
+            <p><strong>Losing Trades:</strong> <span id="stats-losing-trades">0</span></p>
+            <p><strong>Win Rate:</strong> <span id="stats-win-rate">N/A</span></p>
+            <p><strong>Total Realized P&L:</strong> <span id="stats-total-pnl" data-status="neutral">$0.00</span></p>
+        </div>
+    </div>
+
+    <!-- Gamification: XP and Level -->
+    <div class="card xp-level-card gamification-element" data-group-show="3,4">
+        <div class="card-header">
+            <h2>Your Progress</h2>
+        </div>
+        <div class="card-body">
+            <div class="level-display">
+                <span class="level-label">Level</span>
+                <span class="level-number" id="profile-level">1</span>
+            </div>
+            <div class="xp-bar-container">
+                <progress id="profile-xp-progress" value="0" max="100"></progress>
+                <div class="xp-text">
+                    <span id="profile-current-xp">0</span> / <span id="profile-next-level-xp">100</span> XP
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gamification: Achievements Grid -->
+<div class="card achievements-grid-card gamification-element" data-group-show="2,3,4">
+    <div class="card-header">
+        <h2>Achievements</h2>
+    </div>
+    <div class="card-body">
+        <div id="achievements-container" class="achievements-grid">
+            <!-- Achievements will be loaded here by JS -->
+            <p>Loading achievements...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Account Management -->
+<div class="card account-management-card">
+    <div class="card-header">
+        <h2>Account Management</h2>
+    </div>
+    <div class="card-body">
+        <button class="btn btn-secondary" id="reset-password-btn">Reset Password</button>
+        <button class="btn btn-danger" id="delete-account-btn">Delete Account</button>
+        <p class="small-text">Note: Deleting your account is permanent and will remove you from the study.</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ url_for('static', filename='js/gamification.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,94 @@
+/* --- Dashboard Styles --- */
+
+.dashboard-header {
+    margin-bottom: 30px;
+}
+
+.dashboard-header h1 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.dashboard-header p {
+    font-size: 1.2rem;
+    color: var(--subtle-text-color);
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-gap: 20px;
+}
+
+/* Card-specific styles */
+.summary-card .summary-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.summary-metrics .metric .label {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--subtle-text-color);
+    margin-bottom: 5px;
+}
+
+.summary-metrics .metric .value {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.market-summary-card .market-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.market-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.market-list li:last-child {
+    border-bottom: none;
+}
+
+.market-list .symbol {
+    font-weight: 600;
+}
+
+.market-list .price {
+    font-weight: 500;
+}
+
+.card-header .view-all {
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.recent-trades-card .data-table td,
+.recent-trades-card .data-table th {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.achievements-card .achievement-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 15px;
+}
+
+.achievements-card .badge-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+}
+
+.achievements-card .badge-name {
+    font-size: 0.75rem;
+}

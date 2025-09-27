@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-form-wrapper">
+        <h1>Create a New Account</h1>
+        <p>Join our research study by creating an account.</p>
+
+        <form id="register-form" class="auth-form" method="POST" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required minlength="3" maxlength="20">
+                <div class="error-message" id="username-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required>
+                <div class="error-message" id="email-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required minlength="8">
+                <div class="error-message" id="password-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm-password">Confirm Password</label>
+                <input type="password" id="confirm-password" name="confirm-password" required>
+                <div class="error-message" id="confirm-password-error"></div>
+            </div>
+
+            <hr>
+
+            <div class="form-group consent-group">
+                <label for="consent" class="consent-label">Research Participation Consent</label>
+                <div class="consent-text">
+                    <p>
+                        This platform is part of an academic research study on financial decision-making. By creating an account, you agree to participate.
+                    </p>
+                    <p>
+                        <strong>Your participation involves:</strong>
+                        - Using the simulated trading platform with $10,000 in virtual funds.
+                        - Having your anonymized trading activity (trades, portfolio changes, and interactions with platform features) recorded for analysis.
+                    </p>
+                    <p>
+                        <strong>Confidentiality:</strong>
+                        - All data collected will be anonymized. Your email address will not be linked to the research data. A unique participant ID will be used instead.
+                        - The aggregated, anonymized results may be published in academic journals or presented at conferences.
+                    </p>
+                    <p>
+                        <strong>Voluntary Participation:</strong>
+                        - Your participation is completely voluntary. You can choose to stop at any time by deleting your account from your profile page.
+                    </p>
+                </div>
+                <div class="consent-checkbox">
+                    <input type="checkbox" id="consent" name="consent" required>
+                    <label for="consent">I have read, understood, and agree to participate in this research study.</label>
+                </div>
+                <div class="error-message" id="consent-error"></div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Create Account</button>
+            </div>
+
+            <div id="form-error" class="error-message general-error"></div>
+        </form>
+
+        <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    {# auth.js is already included in base.html #}
+{% endblock %}

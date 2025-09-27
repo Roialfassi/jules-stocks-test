@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Welcome, <span id="username-display">User</span>!</h1>
+    <p>Here's a snapshot of your trading activity.</p>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Portfolio Summary -->
+    <div class="card summary-card">
+        <div class="card-header">
+            <h2>Portfolio Overview</h2>
+        </div>
+        <div class="card-body">
+            <div class="summary-metrics">
+                <div class="metric">
+                    <span class="label">Total Value</span>
+                    <span class="value" id="total-portfolio-value">$0.00</span>
+                </div>
+                <div class="metric">
+                    <span class="label">Cash Balance</span>
+                    <span class="value" id="cash-balance">$0.00</span>
+                </div>
+                <div class="metric">
+                    <span class="label">Total P&L</span>
+                    <span class="value" id="total-pnl" data-status="neutral">$0.00</span>
+                </div>
+                <div class="metric">
+                    <span class="label">Invested</span>
+                    <span class="value" id="invested-value">$0.00</span>
+                </div>
+            </div>
+            <div class="summary-chart">
+                <canvas id="portfolio-summary-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Summary -->
+    <div class="card market-summary-card">
+        <div class="card-header">
+            <h2>Market Watchlist</h2>
+        </div>
+        <div class="card-body">
+            <ul id="market-watchlist" class="market-list">
+                <!-- Market data will be loaded here by JS -->
+                <li>Loading market data...</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card recent-trades-card">
+        <div class="card-header">
+            <h2>Recent Trades</h2>
+            <a href="{{ url_for('portfolio') }}" class="view-all">View All</a>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Symbol</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-trades-table">
+                    <!-- Recent trades will be loaded here by JS -->
+                    <tr><td colspan="5">No recent trades.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Gamification: Achievements -->
+    <div class="card achievements-card gamification-element" data-group-show="2,3,4">
+        <div class="card-header">
+            <h2>Recent Achievements</h2>
+            <a href="{{ url_for('profile') }}" class="view-all">View All</a>
+        </div>
+        <div class="card-body">
+            <div id="recent-achievements-grid" class="achievement-grid">
+                <!-- Achievement badges will be loaded here by JS -->
+                <p>No achievements unlocked yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gamification: Leaderboard -->
+    <div class="card leaderboard-card gamification-element" data-group-show="4">
+        <div class="card-header">
+            <h2>Leaderboard</h2>
+            <span id="user-rank-display"></span>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Username</th>
+                        <th>Portfolio Value</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-table">
+                    <!-- Leaderboard data will be loaded here by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/gamification.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
