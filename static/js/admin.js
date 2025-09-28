@@ -1,144 +1,70 @@
-document.addEventListener('DOMContentLoaded', () => {
-    if (!window.location.pathname.includes('/admin')) return;
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    // --- DOM Elements ---
-    const totalUsersEl = document.getElementById('admin-total-users');
-    const totalTradesEl = document.getElementById('admin-total-trades');
-    const groupUsersEls = {
-        1: document.getElementById('admin-group1-users'),
-        2: document.getElementById('admin-group2-users'),
-        3: document.getElementById('admin-group3-users'),
-        4: document.getElementById('admin-group4-users'),
-    };
-    const userSearchInput = document.getElementById('user-search-input');
-    const userListTableBody = document.getElementById('user-list-table-body');
-    const exportButtons = document.querySelectorAll('.data-export-card .btn');
+    // Fetch Admin Analytics
+    fetch('/api/research/analytics')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-users').textContent = data.totalUsers;
+            document.getElementById('total-trades').textContent = data.totalTrades;
+            document.getElementById('group-1-users').textContent = data.usersByGroup['1'] || 0;
+            document.getElementById('group-2-users').textContent = data.usersByGroup['2'] || 0;
+            document.getElementById('group-3-users').textContent = data.usersByGroup['3'] || 0;
+            document.getElementById('group-4-users').textContent = data.usersByGroup['4'] || 0;
+        })
+        .catch(error => console.error('Error fetching admin analytics:', error));
 
-    // --- State ---
-    let allUsers = [];
-
-    /**
-     * Main function to load all admin dashboard data.
-     */
-    async function loadAdminDashboard() {
-        try {
-            const [analytics, users] = await Promise.all([
-                apiRequest('/api/research/analytics'),
-                apiRequest('/api/research/users')
-            ]);
-
-            allUsers = users || [];
-
-            renderAnalytics(analytics);
-            renderUserList(allUsers);
-
-        } catch (error) {
-            console.error("Failed to load admin dashboard:", error);
-            showToast("Could not load admin data.", 'error');
-        }
-    }
-
-    /**
-     * Renders the top analytics cards.
-     * @param {object} analytics - The analytics data from the API.
-     */
-    function renderAnalytics(analytics) {
-        if (!analytics) return;
-        totalUsersEl.textContent = analytics.totalUsers;
-        totalTradesEl.textContent = analytics.totalTrades;
-        if (analytics.usersByGroup) {
-            for (const group in groupUsersEls) {
-                if (groupUsersEls[group]) {
-                    groupUsersEls[group].textContent = analytics.usersByGroup[group] || 0;
-                }
+    // Fetch All Users
+    fetch('/api/research/users')
+        .then(response => response.json())
+        .then(users => {
+            const usersTableBody = document.getElementById('users-table');
+            usersTableBody.innerHTML = ''; // Clear loading state
+            if (users.length === 0) {
+                usersTableBody.innerHTML = '<tr><td colspan="7">No users found.</td></tr>';
+                return;
             }
-        }
-    }
-
-    /**
-     * Renders the list of users in the main table.
-     * @param {Array<object>} users - The list of users to render.
-     */
-    function renderUserList(users) {
-        userListTableBody.innerHTML = '';
-        if (users && users.length > 0) {
             users.forEach(user => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${user.participantId}</td>
                     <td>${user.username}</td>
                     <td>${user.email}</td>
-                    <td>Group ${user.researchGroup}</td>
+                    <td>${user.participantId}</td>
+                    <td>${user.researchGroup}</td>
+                    <td>${user.role}</td>
                     <td>${new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-sm">View Details</button>
-                    </td>
+                    <td><button class="button" disabled>Edit</button></td>
                 `;
-                userListTableBody.appendChild(row);
+                usersTableBody.appendChild(row);
             });
-        } else {
-            userListTableBody.innerHTML = '<tr><td colspan="6">No users found.</td></tr>';
-        }
-    }
+        })
+        .catch(error => console.error('Error fetching users:', error));
 
-    /**
-     * Handles the user search input to filter the rendered user list.
-     */
-    const handleUserSearch = debounce(() => {
-        const query = userSearchInput.value.toLowerCase().trim();
-        if (query === '') {
-            renderUserList(allUsers);
-            return;
-        }
+    // Handle Data Export
+    document.querySelectorAll('.export-buttons .button').forEach(button => {
+        button.addEventListener('click', () => {
+            const collection = button.dataset.collection;
+            const url = `/api/research/export?collection=${collection}`;
 
-        const filteredUsers = allUsers.filter(user =>
-            user.email.toLowerCase().includes(query) ||
-            user.participantId.toLowerCase().includes(query) ||
-            user.username.toLowerCase().includes(query)
-        );
-        renderUserList(filteredUsers);
-    }, 300);
-
-    /**
-     * Handles the click event for data export buttons.
-     * @param {Event} e - The click event.
-     */
-    async function handleExport(e) {
-        const button = e.target;
-        const collectionName = button.dataset.collection;
-        if (!collectionName) return;
-
-        showToast(`Exporting ${collectionName}...`, 'info');
-        button.disabled = true;
-
-        try {
-            const csvData = await apiRequest(`/api/research/export?collection=${collectionName}`);
-            if (csvData && csvData.csv) {
-                // Create a blob and trigger download
-                const blob = new Blob([csvData.csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', `${collectionName}_export_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast(`${collectionName} exported successfully.`, 'success');
-            } else {
-                throw new Error("No CSV data received from server.");
-            }
-        } catch (error) {
-            console.error(`Failed to export ${collectionName}:`, error);
-            showToast(`Could not export ${collectionName}.`, 'error');
-        } finally {
-            button.disabled = false;
-        }
-    }
-
-    // --- Event Listeners ---
-    userSearchInput.addEventListener('keyup', handleUserSearch);
-    exportButtons.forEach(button => button.addEventListener('click', handleExport));
-
-    // --- Initial Load ---
-    loadAdminDashboard();
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const blob = new Blob([data.csv], { type: 'text/csv' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `${collection}_export_${new Date().toISOString().split('T')[0]}.csv`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } else {
+                        alert(`Error exporting ${collection}: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error exporting ${collection}:`, error)
+                    alert(`An error occurred while exporting ${collection}.`);
+                });
+        });
+    });
 });

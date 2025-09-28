@@ -1,98 +1,134 @@
 import pytest
-from unittest.mock import patch, MagicMock
+import os
+import uuid
 from app import create_app
-from services import trading_service
+from services import sqlite_service, trading_service
+from unittest.mock import patch
 
 # --- Fixtures ---
 
 @pytest.fixture
 def app():
-    """
-    Create a new app instance for each test, with Firebase services fully mocked.
-    """
-    with patch('services.firebase_service.db', MagicMock()) as mock_db:
-        with patch('services.firebase_service.auth', MagicMock()):
-            app = create_app('testing')
-            app.mock_db = mock_db
-            yield app
+    """Create and configure a new app instance for each test."""
+    db_path = f"test_trading_{uuid.uuid4()}.sqlite"
+    app = create_app('testing')
+    app.config.update({"DATABASE": db_path})
+
+    with app.app_context():
+        sqlite_service.init_db()
+        # Seed with a test user
+        db = sqlite_service.get_db()
+        user_id = 'test_user_123'
+        db.execute(
+            "INSERT INTO users (id, username, email, password, participantId, researchGroup, consentGiven, consentTimestamp, consentIP, createdAt, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (user_id, 'testtrader', 'trader@test.com', 'password', 'P0001', 1, 1, '2023-01-01', '127.0.0.1', '2023-01-01', 'user')
+        )
+        db.execute(
+            "INSERT INTO balances (user_id, cashBalance) VALUES (?, ?)",
+            (user_id, 10000.0)
+        )
+        db.commit()
+
+    yield app
+
+    # Cleanup
+    os.unlink(db_path)
+
 
 # --- Mock Data ---
 MOCK_USER_ID = "test_user_123"
 MOCK_SYMBOL = "TEST"
 MOCK_PRICE = 100.0
 
-# --- Helper for Mocks ---
-
-def setup_transaction_mocks(db_mock):
-    """Sets up common mocks for a Firestore transaction."""
-    mock_transaction = MagicMock()
-    db_mock.transaction.return_value = mock_transaction
-
-    mock_balance_ref = db_mock.collection('balances').document(MOCK_USER_ID)
-    mock_portfolio_ref = db_mock.collection('users').document(MOCK_USER_ID).collection('portfolio').document(MOCK_SYMBOL)
-
-    return mock_transaction, mock_balance_ref, mock_portfolio_ref
-
 # --- Tests ---
 
 @patch('services.trading_service.research_service.log_action')
 @patch('services.trading_service.gamification.check_and_award_achievements')
 @patch('services.market_data.get_current_price')
-@patch('services.market_data.get_asset_details')
-def test_execute_buy_order_success(mock_asset_details, mock_get_price, mock_check_achievements, mock_log_action, app):
+def test_execute_buy_order_success(mock_get_price, mock_check_achievements, mock_log_action, app):
     mock_get_price.return_value = MOCK_PRICE
-    mock_asset_details.return_value = {'name': 'Test Inc.', 'type': 'EQUITY'}
-    mock_transaction, mock_balance_ref, mock_portfolio_ref = setup_transaction_mocks(app.mock_db)
 
-    # Mock the transaction's behavior
-    @firestore.transactional
-    def buy_transaction_mock(transaction, *args, **kwargs):
-        # Simulate the transaction logic for the test's purpose
-        transaction.get(mock_balance_ref)
-        transaction.set(mock_portfolio_ref, {})
-        transaction.update(mock_balance_ref, {})
-        return 9500.0 # Return the expected new balance
-
-    with patch('services.trading_service.firestore.transactional', return_value=buy_transaction_mock):
+    with app.app_context():
         result = trading_service.execute_buy_order(MOCK_USER_ID, MOCK_SYMBOL, 5)
+        db = sqlite_service.get_db()
 
-    assert result['status'] == 'success'
-    assert result['new_balance'] == 9500.0
-    mock_check_achievements.assert_called_once()
-    mock_log_action.assert_called_once()
+        # Assertions
+        assert result['status'] == 'success'
+        assert result['new_balance'] == 9500.0  # 10000 - (5 * 100)
+
+        balance = db.execute("SELECT * FROM balances WHERE user_id = ?", (MOCK_USER_ID,)).fetchone()
+        assert balance['cashBalance'] == 9500.0
+        assert balance['investedValue'] == 500.0
+
+        holding = db.execute("SELECT * FROM holdings WHERE user_id = ? AND symbol = ?", (MOCK_USER_ID, MOCK_SYMBOL)).fetchone()
+        assert holding is not None
+        assert holding['quantity'] == 5
+        assert holding['average_price'] == 100.0
+
+        transaction = db.execute("SELECT * FROM transactions WHERE user_id = ?", (MOCK_USER_ID,)).fetchone()
+        assert transaction is not None
+        assert transaction['transaction_type'] == 'BUY'
+
+        mock_check_achievements.assert_called_once()
+        mock_log_action.assert_called_once()
+
 
 @patch('services.market_data.get_current_price')
 def test_execute_buy_order_insufficient_funds(mock_get_price, app):
     mock_get_price.return_value = MOCK_PRICE
 
-    # Simulate the transaction raising a ValueError
-    @firestore.transactional
-    def buy_transaction_mock_fail(transaction, *args, **kwargs):
-        raise ValueError("Insufficient funds")
+    with app.app_context():
+        # Set user's balance to be low
+        db = sqlite_service.get_db()
+        db.execute("UPDATE balances SET cashBalance = 400.0 WHERE user_id = ?", (MOCK_USER_ID,))
+        db.commit()
 
-    with patch('services.trading_service.firestore.transactional', return_value=buy_transaction_mock_fail):
-        result = trading_service.execute_buy_order(MOCK_USER_ID, MOCK_SYMBOL, 5)
+        result = trading_service.execute_buy_order(MOCK_USER_ID, MOCK_SYMBOL, 5) # Cost is 500
 
-    assert result['status'] == 'error'
-    assert 'Insufficient funds' in result['message']
+        # Assertions
+        assert result['status'] == 'error'
+        assert 'Insufficient funds' in result['message']
+
+        balance = db.execute("SELECT * FROM balances WHERE user_id = ?", (MOCK_USER_ID,)).fetchone()
+        assert balance['cashBalance'] == 400.0
+        holding = db.execute("SELECT * FROM holdings WHERE user_id = ? AND symbol = ?", (MOCK_USER_ID, MOCK_SYMBOL)).fetchone()
+        assert holding is None
+
 
 @patch('services.trading_service.research_service.log_action')
 @patch('services.trading_service.gamification.check_and_award_achievements')
 @patch('services.market_data.get_current_price')
 def test_execute_sell_order_success(mock_get_price, mock_check_achievements, mock_log_action, app):
-    mock_get_price.return_value = 110.0
+    mock_get_price.return_value = 110.0 # Selling for a profit
 
-    @firestore.transactional
-    def sell_transaction_mock(transaction, *args, **kwargs):
-        return 5550.0
+    with app.app_context():
+        db = sqlite_service.get_db()
+        # First, give the user something to sell
+        db.execute(
+            'INSERT INTO holdings (user_id, symbol, quantity, average_price) VALUES (?, ?, ?, ?)',
+            (MOCK_USER_ID, MOCK_SYMBOL, 10, 100.0) # 10 shares bought at $100
+        )
+        db.commit()
 
-    with patch('services.trading_service.firestore.transactional', return_value=sell_transaction_mock):
-        result = trading_service.execute_sell_order(MOCK_USER_ID, MOCK_SYMBOL, 5)
+        result = trading_service.execute_sell_order(MOCK_USER_ID, MOCK_SYMBOL, 5) # Selling 5 shares
 
-    assert result['status'] == 'success'
-    assert result['new_balance'] == 5550.0
-    mock_check_achievements.assert_called_once()
-    mock_log_action.assert_called_once()
+        # Assertions
+        assert result['status'] == 'success'
+        # Initial cash: 10000. Proceeds: 5 * 110 = 550. New balance: 10550
+        assert result['new_balance'] == 10550.0
 
-# This import is needed for the test to understand the firestore object
-from google.cloud import firestore
+        balance = db.execute("SELECT * FROM balances WHERE user_id = ?", (MOCK_USER_ID,)).fetchone()
+        assert balance['cashBalance'] == 10550.0
+        assert balance['totalRealizedPnL'] == 50.0 # (110 - 100) * 5
+        assert balance['winningTrades'] == 1
+
+        holding = db.execute("SELECT * FROM holdings WHERE user_id = ? AND symbol = ?", (MOCK_USER_ID, MOCK_SYMBOL)).fetchone()
+        assert holding is not None
+        assert holding['quantity'] == 5 # 10 - 5 = 5 left
+
+        transaction = db.execute("SELECT * FROM transactions WHERE user_id = ? AND transaction_type = 'SELL'", (MOCK_USER_ID,)).fetchone()
+        assert transaction is not None
+        assert transaction['quantity'] == 5
+
+        mock_check_achievements.assert_called_once()
+        mock_log_action.assert_called_once()

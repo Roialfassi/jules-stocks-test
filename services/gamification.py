@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
-from services import firebase_service
+from datetime import datetime, timezone, timedelta
+from services import sqlite_service
 
 # --- Achievement Definitions ---
 # Each achievement has a code, name, description, points, and a trigger function.
@@ -92,16 +92,14 @@ def award_xp(user_id, points):
     Awards XP to a user and handles leveling up.
     Applicable only to users in groups 3 and 4.
     """
-    db = firebase_service.db
-    gamification_ref = db.collection('gamification').document(user_id)
-
-    user = firebase_service.get_user(user_id)
-    if user.get('researchGroup') not in [3, 4]:
+    db = sqlite_service.get_db()
+    user = sqlite_service.get_user_by_id(user_id)
+    if not user or user['researchGroup'] not in [3, 4]:
         return
 
-    gamification_doc = gamification_ref.get()
-    if gamification_doc.exists:
-        stats = gamification_doc.to_dict()
+    stats_row = db.execute('SELECT * FROM gamification WHERE user_id = ?', (user_id,)).fetchone()
+    if stats_row:
+        stats = dict(stats_row)
         current_xp = stats.get('totalXP', 0)
         current_level = stats.get('currentLevel', 1)
         xp_to_next = stats.get('xpToNextLevel', 100)
@@ -111,40 +109,41 @@ def award_xp(user_id, points):
         while new_xp >= xp_to_next:
             current_level += 1
             new_xp -= xp_to_next
-            xp_to_next = int(xp_to_next * 1.5) # Increase XP requirement for next level
+            xp_to_next = int(xp_to_next * 1.5)
 
-        gamification_ref.update({
-            'totalXP': new_xp,
-            'currentLevel': current_level,
-            'xpToNextLevel': xp_to_next
-        })
+        db.execute(
+            'UPDATE gamification SET totalXP = ?, currentLevel = ?, xpToNextLevel = ? WHERE user_id = ?',
+            (new_xp, current_level, xp_to_next, user_id)
+        )
+        db.commit()
 
 def check_and_award_achievements(user_id, event_type, event_data=None):
     """
     Checks all relevant achievements for a user based on an event.
     """
-    db = firebase_service.db
     user_data = get_user_state_for_achievements(user_id)
+    if not user_data or not user_data.get('user'):
+        return
 
-    if user_data['user'].get('researchGroup') < 2:
+    if user_data['user'].get('researchGroup', 1) < 2:
         return # No achievements for group 1
 
     for code, achievement in ACHIEVEMENTS.items():
-        # Skip achievements not visible to the user's group
-        if user_data['user']['researchGroup'] not in achievement['visibleToGroups']:
+        if user_data['user']['researchGroup'] not in achievement.get('visibleToGroups', []):
             continue
 
-        # Check if user already has this achievement
         if code in user_data['achievements']:
             continue
 
-        # Check trigger condition
         try:
+            triggered = False
             if event_type == 'trade' and code == 'early_bird':
-                # Special handling for time-based achievement
-                if achievement['trigger'](user_data, trade_time=datetime.now()):
-                    award_achievement(user_id, code, achievement)
+                if achievement['trigger'](user_data, trade_time=datetime.now(timezone.utc)):
+                    triggered = True
             elif achievement['trigger'](user_data):
+                triggered = True
+
+            if triggered:
                 award_achievement(user_id, code, achievement)
         except Exception as e:
             print(f"Error checking achievement {code} for user {user_id}: {e}")
@@ -155,61 +154,53 @@ def award_achievement(user_id, code, achievement_data):
     Awards a specific achievement to a user and grants XP.
     """
     print(f"Awarding achievement '{code}' to user {user_id}")
-    db = firebase_service.db
-    achievement_ref = db.collection('users').document(user_id).collection('achievements').document(code)
+    db = sqlite_service.get_db()
 
-    achievement_ref.set({
-        'code': code,
-        'name': achievement_data['name'],
-        'isCompleted': True,
-        'completedAt': datetime.utcnow()
-    })
-
-    # Award XP if the user is in the right group
-    award_xp(user_id, achievement_data['points'])
+    db.execute(
+        'INSERT INTO achievements (user_id, achievement_id, completedAt) VALUES (?, ?, ?)',
+        (user_id, code, datetime.now(timezone.utc))
+    )
+    db.commit()
+    award_xp(user_id, achievement_data.get('points', 0))
 
 
 def get_user_state_for_achievements(user_id):
     """
-    Gathers all necessary user data from different Firestore collections
+    Gathers all necessary user data from different SQLite tables
     to evaluate achievement conditions.
     """
-    db = firebase_service.db
+    db = sqlite_service.get_db()
 
-    user_doc = db.collection('users').document(user_id).get()
-    balance_doc = db.collection('balances').document(user_id).get()
-    gamification_doc = db.collection('gamification').document(user_id).get()
-
-    portfolio_docs = db.collection('users').document(user_id).collection('portfolio').stream()
-    achievements_docs = db.collection('users').document(user_id).collection('achievements').stream()
+    user_row = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    balance_row = db.execute('SELECT * FROM balances WHERE user_id = ?', (user_id,)).fetchone()
+    gamification_row = db.execute('SELECT * FROM gamification WHERE user_id = ?', (user_id,)).fetchone()
+    holdings_rows = db.execute('SELECT * FROM holdings WHERE user_id = ?', (user_id,)).fetchall()
+    achievements_rows = db.execute('SELECT * FROM achievements WHERE user_id = ?', (user_id,)).fetchall()
 
     return {
-        'user': user_doc.to_dict() if user_doc.exists else {},
-        'balances': balance_doc.to_dict() if balance_doc.exists else {},
-        'gamification': gamification_doc.to_dict() if gamification_doc.exists else {},
-        'portfolio': [doc.to_dict() for doc in portfolio_docs],
-        'achievements': {doc.id: doc.to_dict() for doc in achievements_docs}
+        'user': dict(user_row) if user_row else {},
+        'balances': dict(balance_row) if balance_row else {},
+        'gamification': dict(gamification_row) if gamification_row else {},
+        'portfolio': [dict(row) for row in holdings_rows],
+        'achievements': {row['achievement_id']: dict(row) for row in achievements_rows}
     }
 
 def get_leaderboard():
     """
-    Gets the top 10 users by total portfolio value.
-    This can be an expensive query. For production, this data should be
-    aggregated and cached periodically by a background job.
+    Gets the top 10 users by total portfolio value from SQLite.
     """
-    db = firebase_service.db
-    users_ref = db.collection('users')
-    balances_ref = db.collection('balances').order_by('totalPortfolioValue', direction='DESCENDING').limit(10)
+    db = sqlite_service.get_db()
+    query = """
+        SELECT u.username, b.totalPortfolioValue
+        FROM balances b
+        JOIN users u ON b.user_id = u.id
+        ORDER BY b.totalPortfolioValue DESC
+        LIMIT 10
+    """
+    leaderboard_rows = db.execute(query).fetchall()
 
-    leaderboard = []
-    for balance_doc in balances_ref.stream():
-        user_id = balance_doc.id
-        user_doc = users_ref.document(user_id).get()
-        if user_doc.exists:
-            user_data = user_doc.to_dict()
-            balance_data = balance_doc.to_dict()
-            leaderboard.append({
-                'username': user_data.get('username', 'Anonymous'),
-                'portfolioValue': balance_data.get('totalPortfolioValue', 0)
-            })
+    leaderboard = [
+        {'username': row['username'], 'portfolioValue': row['totalPortfolioValue']}
+        for row in leaderboard_rows
+    ]
     return leaderboard

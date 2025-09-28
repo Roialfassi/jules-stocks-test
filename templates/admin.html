@@ -3,96 +3,93 @@
 {% block title %}Admin Dashboard{% endblock %}
 
 {% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="admin-header">
+<div class="dashboard-header">
     <h1>Admin Dashboard</h1>
-    <p>Research and user management panel.</p>
+    <p>System monitoring and user management.</p>
 </div>
 
 <!-- Admin Analytics -->
-<div class="analytics-grid">
-    <div class="card analytic-card">
-        <span class="label">Total Users</span>
-        <span class="value" id="admin-total-users">0</span>
-    </div>
-    <div class="card analytic-card">
-        <span class="label">Total Trades</span>
-        <span class="value" id="admin-total-trades">0</span>
-    </div>
-    <div class="card analytic-card">
-        <span class="label">Group 1 Users</span>
-        <span class="value" id="admin-group1-users">0</span>
-    </div>
-    <div class="card analytic-card">
-        <span class="label">Group 2 Users</span>
-        <span class="value" id="admin-group2-users">0</span>
-    </div>
-    <div class="card analytic-card">
-        <span class="label">Group 3 Users</span>
-        <span class="value" id="admin-group3-users">0</span>
-    </div>
-     <div class="card analytic-card">
-        <span class="label">Group 4 Users</span>
-        <span class="value" id="admin-group4-users">0</span>
-    </div>
-</div>
-
-<!-- User Management -->
-<div class="card user-management-card">
+<div class="card">
     <div class="card-header">
-        <h2>User Management</h2>
-        <input type="text" id="user-search-input" placeholder="Search by email or participant ID...">
+        <h2>System Analytics</h2>
     </div>
     <div class="card-body">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Participant ID</th>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Research Group</th>
-                    <th>Registered On</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="user-list-table-body">
-                <!-- User list will be loaded here by JS -->
-                <tr><td colspan="6">Loading users...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Data Export -->
-<div class="card data-export-card">
-    <div class="card-header">
-        <h2>Research Data Export</h2>
-    </div>
-    <div class="card-body">
-        <p>Export data from Firestore collections as CSV files for analysis.</p>
-        <div class="export-buttons">
-            <button class="btn btn-secondary" data-collection="users">Export Users</button>
-            <button class="btn btn-secondary" data-collection="transactions">Export Transactions</button>
-            <button class="btn btn-secondary" data-collection="balances">Export Balances</button>
-            <button class="btn btn-secondary" data-collection="userActions">Export User Actions</button>
-            <button class="btn btn-secondary" data-collection="userAchievements">Export Achievements</button>
+        <div class="summary-metrics" id="admin-analytics">
+            <div class="metric">
+                <span class="label">Total Users</span>
+                <span class="value" id="total-users">Loading...</span>
+            </div>
+            <div class="metric">
+                <span class="label">Total Trades</span>
+                <span class="value" id="total-trades">Loading...</span>
+            </div>
+            <div class="metric">
+                <span class="label">Group 1 Users</span>
+                <span class="value" id="group-1-users">Loading...</span>
+            </div>
+            <div class="metric">
+                <span class="label">Group 2 Users</span>
+                <span class="value" id="group-2-users">Loading...</span>
+            </div>
+            <div class="metric">
+                <span class="label">Group 3 Users</span>
+                <span class="value" id="group-3-users">Loading...</span>
+            </div>
+             <div class="metric">
+                <span class="label">Group 4 Users</span>
+                <span class="value" id="group-4-users">Loading...</span>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Study Management -->
-<div class="card study-management-card">
+<!-- User Management -->
+<div class="card">
     <div class="card-header">
-        <h2>Study Management</h2>
+        <h2>User Management</h2>
     </div>
     <div class="card-body">
-        <p>Control the status of the research study.</p>
-        <div class="study-controls">
-            <button class="btn btn-warning">Pause New Registrations</button>
-            <button class="btn btn-danger">End Study</button>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Participant ID</th>
+                        <th>Group</th>
+                        <th>Role</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table">
+                    <!-- User data will be loaded here by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Data Export -->
+<div class="card">
+    <div class="card-header">
+        <h2>Data Export</h2>
+    </div>
+    <div class="card-body">
+        <p>Export collections as CSV files.</p>
+        <div class="export-buttons">
+            <button class="button" data-collection="users">Export Users</button>
+            <button class="button" data-collection="transactions">Export Transactions</button>
+            <button class="button" data-collection="balances">Export Balances</button>
+            <button class="button" data-collection="holdings">Export Holdings</button>
+            <button class="button" data-collection="gamification">Export Gamification</button>
+            <button class="button" data-collection="achievements">Export Achievements</button>
+            <button class="button" data-collection="userActions">Export User Actions</button>
         </div>
     </div>
 </div>

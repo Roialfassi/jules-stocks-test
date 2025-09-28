@@ -1,98 +1,100 @@
 import pytest
-from unittest.mock import patch, MagicMock
+import os
+import uuid
 from app import create_app
-from services import gamification
+from services import sqlite_service, gamification
+from unittest.mock import patch, MagicMock
 
 # --- Fixtures ---
 
 @pytest.fixture
 def app():
-    """
-    Create a new app instance for each test, with Firebase services fully mocked.
-    """
-    with patch('services.firebase_service.db', MagicMock()), \
-         patch('services.firebase_service.auth', MagicMock()), \
-         patch('services.firebase_service.get_user') as mock_get_user:
+    """Create and configure a new app instance for each test."""
+    db_path = f"test_gamification_{uuid.uuid4()}.sqlite"
+    app = create_app('testing')
+    app.config.update({"DATABASE": db_path})
 
-        app = create_app('testing')
-        app.mock_get_user = mock_get_user
-        yield app
+    with app.app_context():
+        sqlite_service.init_db()
+        # Seed with test users in different groups
+        db = sqlite_service.get_db()
+        users_to_seed = [
+            ('user_group1', 'user1@test.com', 1),
+            ('user_group2', 'user2@test.com', 2),
+            ('user_group3', 'user3@test.com', 3),
+            ('user_group4', 'user4@test.com', 4)
+        ]
+        for user_id, email, group in users_to_seed:
+            db.execute(
+                "INSERT INTO users (id, username, email, password, researchGroup, participantId, consentGiven, consentTimestamp, consentIP, createdAt, role) VALUES (?, ?, ?, ?, ?, ?, 1, '2023-01-01 12:00:00', '127.0.0.1', '2023-01-01 12:00:00', 'user')",
+                (user_id, user_id, email, 'password', group, f'P{group}')
+            )
+            db.execute("INSERT INTO balances (user_id) VALUES (?)", (user_id,))
+            db.execute("INSERT INTO gamification (user_id) VALUES (?)", (user_id,))
+        db.commit()
+
+    yield app
+    os.unlink(db_path)
 
 # --- Mock Data ---
-MOCK_USER_ID = "test_user_gamified"
-
-def get_mock_user_state(
-    total_trades=0, winning_trades=0, losing_trades=0,
-    portfolio_value=10000, portfolio_items=0,
-    achievements={}, research_group=2
-):
-    """Helper function to create a mock state for achievement checks."""
-    return {
-        'user': {'researchGroup': research_group},
-        'balances': {
-            'totalTrades': total_trades, 'winningTrades': winning_trades,
-            'losingTrades': losing_trades, 'totalPortfolioValue': portfolio_value
-        },
-        'portfolio': [{} for _ in range(portfolio_items)],
-        'achievements': achievements,
-        'gamification': {}
-    }
+USER_G1 = "user_group1"
+USER_G2 = "user_group2"
+USER_G3 = "user_group3"
 
 # --- Tests ---
 
 @patch('services.gamification.award_achievement')
-@patch('services.gamification.get_user_state_for_achievements')
-def test_first_trade_achievement(mock_get_state, mock_award, app):
-    """Test that the 'first_trade' achievement is awarded correctly."""
-    mock_get_state.return_value = get_mock_user_state(total_trades=1)
-
+def test_first_trade_achievement(mock_award, app):
+    """Test that 'first_trade' achievement is awarded after the first trade."""
     with app.app_context():
-        gamification.check_and_award_achievements(MOCK_USER_ID, 'trade')
+        db = sqlite_service.get_db()
+        db.execute("UPDATE balances SET totalTrades = 1 WHERE user_id = ?", (USER_G2,))
+        db.commit()
 
-    mock_award.assert_called_once_with(MOCK_USER_ID, 'first_trade', gamification.ACHIEVEMENTS['first_trade'])
+        gamification.check_and_award_achievements(USER_G2, 'trade')
 
-@patch('services.gamification.award_achievement')
-@patch('services.gamification.get_user_state_for_achievements')
-def test_no_achievements_for_group_1(mock_get_state, mock_award, app):
+    mock_award.assert_called_once_with(USER_G2, 'first_trade', gamification.ACHIEVEMENTS['first_trade'])
+
+
+def test_no_achievements_for_group_1(app):
     """Test that users in research group 1 do not receive achievements."""
-    mock_get_state.return_value = get_mock_user_state(total_trades=1, research_group=1)
+    with app.app_context(), patch('services.gamification.award_achievement') as mock_award:
+        db = sqlite_service.get_db()
+        db.execute("UPDATE balances SET totalTrades = 1 WHERE user_id = ?", (USER_G1,))
+        db.commit()
 
+        gamification.check_and_award_achievements(USER_G1, 'trade')
+        mock_award.assert_not_called()
+
+
+def test_xp_awarded_for_group_3_and_4_not_2(app):
+    """Test XP is awarded to groups 3 & 4, but not 2."""
     with app.app_context():
-        gamification.check_and_award_achievements(MOCK_USER_ID, 'trade')
+        db = sqlite_service.get_db()
 
-    mock_award.assert_not_called()
+        # Group 2 should not get XP
+        gamification.award_xp(USER_G2, 50)
+        stats_g2 = db.execute("SELECT totalXP FROM gamification WHERE user_id = ?", (USER_G2,)).fetchone()
+        assert stats_g2['totalXP'] == 0
 
-@patch('services.gamification.firebase_service.db')
-def test_xp_awarded_for_group_3_and_4(mock_db, app):
-    """Test that XP is awarded to users in groups 3 and 4, but not 2."""
-    mock_gamification_ref = mock_db.collection().document()
-    mock_gamification_doc = MagicMock(exists=True, to_dict=lambda: {'totalXP': 50, 'currentLevel': 1, 'xpToNextLevel': 100})
-    mock_gamification_ref.get.return_value = mock_gamification_doc
+        # Group 3 should get XP
+        gamification.award_xp(USER_G3, 50)
+        stats_g3 = db.execute("SELECT totalXP FROM gamification WHERE user_id = ?", (USER_G3,)).fetchone()
+        assert stats_g3['totalXP'] == 50
 
-    # Test Group 3
-    app.mock_get_user.return_value = {'researchGroup': 3}
+
+def test_level_up_mechanic(app):
+    """Test that a user levels up when XP exceeds the threshold."""
     with app.app_context():
-        gamification.award_xp(MOCK_USER_ID, 20)
-    mock_gamification_ref.update.assert_called_once_with({'totalXP': 70, 'currentLevel': 1, 'xpToNextLevel': 100})
-    mock_gamification_ref.update.reset_mock()
+        db = sqlite_service.get_db()
+        # Set initial state: 80 XP, level 1, 100 to next
+        db.execute("UPDATE gamification SET totalXP = 80 WHERE user_id = ?", (USER_G3,))
+        db.commit()
 
-    # Test Group 2 (should not get XP)
-    app.mock_get_user.return_value = {'researchGroup': 2}
-    with app.app_context():
-        gamification.award_xp(MOCK_USER_ID, 20)
-    mock_gamification_ref.update.assert_not_called()
+        # Award 30 more XP, which should trigger a level up
+        gamification.award_xp(USER_G3, 30)
 
-@patch('services.gamification.firebase_service.db')
-def test_level_up_mechanic(mock_db, app):
-    """Test that a user levels up when their XP exceeds the threshold."""
-    app.mock_get_user.return_value = {'researchGroup': 3}
-    mock_gamification_ref = mock_db.collection().document()
-    mock_gamification_doc = MagicMock(exists=True, to_dict=lambda: {'totalXP': 80, 'currentLevel': 1, 'xpToNextLevel': 100})
-    mock_gamification_ref.get.return_value = mock_gamification_doc
-
-    with app.app_context():
-        gamification.award_xp(MOCK_USER_ID, 30)
-
-    mock_gamification_ref.update.assert_called_once_with({
-        'totalXP': 10, 'currentLevel': 2, 'xpToNextLevel': 150
-    })
+        stats = db.execute("SELECT * FROM gamification WHERE user_id = ?", (USER_G3,)).fetchone()
+        assert stats['currentLevel'] == 2
+        assert stats['totalXP'] == 10 # 80 + 30 = 110. 110 - 100 = 10.
+        assert stats['xpToNextLevel'] == 150 # 100 * 1.5

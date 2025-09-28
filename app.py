@@ -5,9 +5,10 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 from flask_talisman import Talisman
+import bcrypt
 
 from config import config
-from services import firebase_service, trading_service, gamification, research_service, market_data
+from services import sqlite_service, trading_service, gamification, research_service, market_data
 from utils import decorators, validators
 from tasks import scheduler
 
@@ -24,18 +25,17 @@ def create_app(config_name=None):
         get_remote_address,
         app=app,
         default_limits=["200 per day", "50 per hour"],
-        storage_uri=app.config['RATELIMIT_STORAGE_URI']
+        storage_uri=app.config.get('RATELIMIT_STORAGE_URI')
     )
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
     if os.environ.get('FLASK_ENV') == 'production':
         talisman = Talisman(app, content_security_policy=app.config['CSP'])
 
-    # --- Firebase Initialization ---
-    try:
-        firebase_service.initialize_firebase(app.config['FIREBASE_CONFIG_PATH'])
-    except Exception as e:
-        print(f"CRITICAL: Could not initialize Firebase. Error: {e}")
+    # --- Database Initialization ---
+    if config_name != 'testing':
+        sqlite_service.init_app(app)
+
 
     # --- Background Scheduler ---
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or os.environ.get('FLASK_ENV') == 'production':
@@ -105,7 +105,7 @@ def create_app(config_name=None):
             return jsonify({'status': 'error', 'message': msg}), 400
 
         try:
-            firebase_service.create_user_with_group(
+            sqlite_service.create_user_with_group(
                 data['email'], data['password'], data['username'],
                 data['consent'], request.remote_addr
             )
@@ -118,20 +118,26 @@ def create_app(config_name=None):
 
     @app.route('/api/session-login', methods=['POST'])
     def api_session_login():
-        id_token = request.json.get('token')
-        decoded_token = firebase_service.verify_token(id_token)
-        if not decoded_token:
-            return jsonify({'status': 'error', 'message': 'Invalid token'}), 401
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
 
-        uid = decoded_token['uid']
-        user_profile = firebase_service.get_user(uid)
-        if not user_profile:
-            return jsonify({'status': 'error', 'message': 'User profile not found in database'}), 404
+        if not email or not password:
+            return jsonify({'status': 'error', 'message': 'Email and password are required'}), 400
 
-        session['user_token'] = id_token
+        user = sqlite_service.get_user_by_email(email)
+
+        if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password']):
+            return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
+
+        # Using user.id to avoid conflict with session's 'user' object
+        session['user_id'] = user['id']
         session['user'] = {
-            'uid': uid, 'email': user_profile.get('email'), 'username': user_profile.get('username'),
-            'researchGroup': user_profile.get('researchGroup'), 'role': user_profile.get('role', 'user')
+            'uid': user['id'],
+            'email': user['email'],
+            'username': user['username'],
+            'researchGroup': user['researchGroup'],
+            'role': user['role']
         }
         return jsonify({'status': 'success'})
 
@@ -142,42 +148,42 @@ def create_app(config_name=None):
 
     @app.route('/api/password-reset', methods=['POST'])
     def api_password_reset():
-        email = request.json.get('email')
-        if not validators.is_valid_email(email):
-            return jsonify({'status': 'error', 'message': 'Invalid email format'}), 400
-
-        success = firebase_service.send_password_reset_email(email)
-        if success:
-            return jsonify({'status': 'success', 'message': 'If an account exists for this email, a password reset link has been sent.'})
-        return jsonify({'status': 'error', 'message': 'Failed to send reset email'}), 500
+        # This is a placeholder as password reset is not implemented for SQLite version
+        return jsonify({'status': 'info', 'message': 'Password reset is not available in this version.'})
 
     # == User API ==
     @app.route('/api/user/profile')
     @decorators.login_required
     def api_get_user_profile():
-        user = firebase_service.get_user(session['user']['uid'])
-        return jsonify(user)
+        user_row = sqlite_service.get_user_by_id(session['user']['uid'])
+        if user_row:
+            user_dict = dict(user_row)
+            del user_dict['password']  # Never send password hash to client
+            return jsonify(user_dict)
+        return jsonify({}), 404
 
     @app.route('/api/user/balance')
     @decorators.login_required
     def api_get_user_balance():
-        balance_ref = firebase_service.db.collection('balances').document(session['user']['uid'])
-        balance = balance_ref.get()
-        if balance.exists:
-            return jsonify(balance.to_dict())
+        db = sqlite_service.get_db()
+        balance = db.execute('SELECT * FROM balances WHERE user_id = ?', (session['user']['uid'],)).fetchone()
+        if balance:
+            return jsonify(dict(balance))
         return jsonify({'cashBalance': 10000, 'totalPortfolioValue': 10000}), 404
 
     @app.route('/api/user/delete', methods=['DELETE'])
     @decorators.login_required
     def api_delete_user():
-        # A real implementation would be more complex, handling data archival.
         uid = session['user']['uid']
         try:
-            # Delete from Auth
-            firebase_service.auth.delete_user(uid)
-            # Delete from Firestore (users, balances, etc.)
-            firebase_service.db.collection('users').document(uid).delete()
-            firebase_service.db.collection('balances').document(uid).delete()
+            db = sqlite_service.get_db()
+            db.execute('DELETE FROM users WHERE id = ?', (uid,))
+            db.execute('DELETE FROM balances WHERE user_id = ?', (uid,))
+            db.execute('DELETE FROM transactions WHERE user_id = ?', (uid,))
+            db.execute('DELETE FROM holdings WHERE user_id = ?', (uid,))
+            db.execute('DELETE FROM gamification WHERE user_id = ?', (uid,))
+            db.execute('DELETE FROM achievements WHERE user_id = ?', (uid,))
+            db.commit()
             session.clear()
             return jsonify({'status': 'success', 'message': 'Account deleted successfully'})
         except Exception as e:
@@ -248,10 +254,12 @@ def create_app(config_name=None):
     def api_get_portfolio_history():
         # This is a simplified version. A real implementation would aggregate daily snapshots.
         transactions = trading_service.get_transaction_history(session['user']['uid'])
-        history = [{'timestamp': tx['timestamp'].isoformat(), 'value': tx.get('portfolioValueAfter', 10000)} for tx in transactions]
+        history = [{'timestamp': tx['timestamp'], 'value': tx.get('portfolioValueAfter', 10000)} for tx in transactions]
         history.reverse()
         if not history:
-             history.append({'timestamp': firebase_service.get_user(session['user']['uid'])['createdAt'].isoformat(), 'value': 10000})
+            user = sqlite_service.get_user_by_id(session['user']['uid'])
+            if user:
+                history.append({'timestamp': user['createdAt'].isoformat(), 'value': 10000})
         return jsonify(history)
 
     @app.route('/api/transactions')
@@ -275,19 +283,23 @@ def create_app(config_name=None):
     @app.route('/api/achievements/progress')
     @decorators.login_required
     def api_get_achievement_progress():
-        progress_docs = firebase_service.db.collection('users').document(session['user']['uid']).collection('achievements').stream()
-        progress = [doc.to_dict() for doc in progress_docs]
-        for p in progress:
-            if 'completedAt' in p:
+        db = sqlite_service.get_db()
+        progress_rows = db.execute('SELECT * FROM achievements WHERE user_id = ?', (session['user']['uid'],)).fetchall()
+        progress = []
+        for row in progress_rows:
+            p = dict(row)
+            if p.get('completedAt'):
                 p['completedAt'] = p['completedAt'].isoformat()
+            progress.append(p)
         return jsonify(progress)
 
     @app.route('/api/gamification/stats')
     @decorators.login_required
     def api_get_gamification_stats():
-        stats_doc = firebase_service.db.collection('gamification').document(session['user']['uid']).get()
-        if stats_doc.exists:
-            return jsonify(stats_doc.to_dict())
+        db = sqlite_service.get_db()
+        stats_row = db.execute('SELECT * FROM gamification WHERE user_id = ?', (session['user']['uid'],)).fetchone()
+        if stats_row:
+            return jsonify(dict(stats_row))
         return jsonify({}), 404
 
     @app.route('/api/leaderboard')
@@ -323,11 +335,16 @@ def create_app(config_name=None):
     @decorators.login_required
     @decorators.admin_required
     def api_get_all_users():
-        users_docs = firebase_service.db.collection('users').stream()
+        db = sqlite_service.get_db()
+        users_rows = db.execute('SELECT id, username, email, participantId, researchGroup, consentGiven, consentTimestamp, createdAt, lastLogin, role FROM users').fetchall()
         users = []
-        for doc in users_docs:
-            user_data = doc.to_dict()
+        for row in users_rows:
+            user_data = dict(row)
             user_data['createdAt'] = user_data['createdAt'].isoformat()
+            if user_data.get('lastLogin'):
+                user_data['lastLogin'] = user_data['lastLogin'].isoformat()
+            if user_data.get('consentTimestamp'):
+                user_data['consentTimestamp'] = user_data['consentTimestamp'].isoformat()
             users.append(user_data)
         return jsonify(users)
 
