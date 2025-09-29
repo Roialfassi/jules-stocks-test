@@ -4,3 +4,4 @@ __pycache__/
 .env
 firebase_config.json
 *.log
+/.idea
