@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - TradeSim{% endblock %}
+
+{% block content %}
+<h1>User Profile</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>User Info</h3>
+        <p><strong>Username:</strong> {{ user.username }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>Participant ID:</strong> {{ user.participantId }}</p>
+        <p><strong>Group:</strong> {{ user.researchGroup }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Statistics</h3>
+        <p><strong>Total Trades:</strong> {{ stats.totalTrades }}</p>
+        <p><strong>Winning Trades:</strong> {{ stats.winningTrades }}</p>
+        <p><strong>Losing Trades:</strong> {{ stats.losingTrades }}</p>
+        <p><strong>Current XP:</strong> {{ gamification.totalXP }} (Level {{ gamification.currentLevel }})</p>
+    </div>
+</div>
+
+<div class="card gamification-element achievements-section" data-group-show="2,3,4" style="margin-top: 2rem;">
+    <h3>Achievements</h3>
+    <div class="stats-grid">
+        {% if achievements %}
+            {% for ach in achievements %}
+            <div class="stat-card" style="background: {{ '#e8f5e9' if ach.unlocked else '#f0f0f0' }}; opacity: {{ '1' if ach.unlocked else '0.6' }};">
+                <div style="font-size: 2rem;" title="{{ ach.desc }}">{{ '🏆' if ach.unlocked else '🔒' }}</div>
+                <div>{{ ach.name }}</div>
+                <div style="font-size: 0.8rem;">{{ 'Unlocked' if ach.unlocked else 'Locked' }}</div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No achievements loaded.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

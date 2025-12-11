@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own data
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
+
+      match /portfolio/{document=**} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /achievements/{document=**} {
+        allow read: if request.auth.uid == userId;
+        allow write: if false; // System only
+      }
+      match /history/{document=**} {
+        allow read: if request.auth.uid == userId;
+        allow write: if false; // System only
+      }
+    }
+
+    // Admins can read all data
+    match /{document=**} {
+      allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" data-group="{{ user.researchGroup if user else '0' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Trading Research Platform{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">
+            <i class="fas fa-chart-line"></i> TradeSim
+        </div>
+
+        {% if session.get('user_id') %}
+        <div class="nav-links">
+            <div class="xp-badge gamification-element">
+                <i class="fas fa-star"></i> XP: <span id="user-xp">0</span> | Lvl <span id="user-level">1</span>
+            </div>
+
+            <a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="{{ url_for('trading') }}"><i class="fas fa-exchange-alt"></i> Trade</a>
+            <a href="{{ url_for('portfolio') }}"><i class="fas fa-briefcase"></i> Portfolio</a>
+            <a href="{{ url_for('profile') }}"><i class="fas fa-user"></i> Profile</a>
+            {% if user and user.role == 'admin' %}
+            <a href="{{ url_for('admin') }}"><i class="fas fa-cog"></i> Admin</a>
+            {% endif %}
+            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+        {% else %}
+        <div class="nav-links">
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register_page') }}">Register</a>
+        </div>
+        {% endif %}
+    </nav>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Pass CSRF token to JS -->
+    <script>
+        const csrfToken = "{{ csrf_token() }}";
+        const currentUserGroup = "{{ user.researchGroup if user else '0' }}";
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
