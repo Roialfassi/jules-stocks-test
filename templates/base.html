@@ -7,6 +7,44 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% block extra_css %}{% endblock %}
+    <style>
+        /* Extra styles for progress bar */
+        .xp-progress-container {
+            width: 150px;
+            margin-right: 1rem;
+            display: none;
+            flex-direction: column;
+        }
+        .xp-progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .xp-progress-fill {
+            height: 100%;
+            background-color: var(--warning-color);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .xp-text {
+            font-size: 0.8rem;
+            color: #fff;
+            text-align: center;
+        }
+        /* Show for Groups 3 & 4 */
+        [data-group="3"] .xp-progress-container,
+        [data-group="4"] .xp-progress-container {
+            display: flex;
+        }
+        /* Hide old badge if replacing */
+        [data-group="3"] .xp-badge,
+        [data-group="4"] .xp-badge {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -16,6 +54,15 @@
 
         {% if session.get('user_id') %}
         <div class="nav-links">
+
+            <div class="xp-progress-container gamification-element">
+                <div class="xp-text">Lvl <span id="nav-level">1</span> | XP: <span id="nav-xp">0</span></div>
+                <div class="xp-progress-bar">
+                    <div class="xp-progress-fill" id="nav-xp-fill"></div>
+                </div>
+            </div>
+
+            <!-- Fallback/Original Badge for consistency or hidden via CSS -->
             <div class="xp-badge gamification-element">
                 <i class="fas fa-star"></i> XP: <span id="user-xp">0</span> | Lvl <span id="user-level">1</span>
             </div>
@@ -56,5 +103,30 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_js %}{% endblock %}
+
+    <script>
+        // Initialize XP bar if user exists
+        document.addEventListener('DOMContentLoaded', async () => {
+            if ("{{ session.get('user_id') }}" !== "None" && (currentUserGroup == '3' || currentUserGroup == '4')) {
+                try {
+                    const res = await fetch('/api/gamification/stats');
+                    if (res.ok) {
+                        const stats = await res.json();
+                        // XP logic: Level = 1 + totalXP // 100. XP to next = 100 - (total % 100)
+                        // Current level progress = totalXP % 100
+                        const progress = stats.totalXP % 100;
+
+                        const fill = document.getElementById('nav-xp-fill');
+                        const lvl = document.getElementById('nav-level');
+                        const xp = document.getElementById('nav-xp');
+
+                        if(fill) fill.style.width = progress + '%';
+                        if(lvl) lvl.textContent = stats.currentLevel;
+                        if(xp) xp.textContent = stats.totalXP;
+                    }
+                } catch(e) { console.error(e); }
+            }
+        });
+    </script>
 </body>
 </html>

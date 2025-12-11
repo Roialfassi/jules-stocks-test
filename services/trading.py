@@ -79,6 +79,10 @@ class TradingService:
                 new_total_cost = current_total_cost - cost_removed
                 avg_cost = current_data['averageCost'] # Avg cost doesn't change on sell
 
+                # Calculate Realized PnL for this trade
+                # Profit = (Sell Price - Avg Cost) * Quantity
+                trade_pnl = (price - avg_cost) * quantity
+
             if new_qty == 0:
                 portfolio_ref.delete()
             else:
@@ -103,7 +107,7 @@ class TradingService:
 
         # Log Transaction
         tx_id = str(uuid.uuid4())
-        db.collection('transactions').document(tx_id).set({
+        tx_data = {
             'userId': user_id,
             'assetId': symbol,
             'symbol': symbol,
@@ -114,7 +118,11 @@ class TradingService:
             'cashBefore': cash,
             'cashAfter': new_cash,
             'timestamp': timestamp
-        })
+        }
+        if action_type == 'SELL' and 'trade_pnl' in locals():
+            tx_data['realizedPnL'] = trade_pnl
+
+        db.collection('transactions').document(tx_id).set(tx_data)
 
         # Update Balances
         balance['cashBalance'] = new_cash

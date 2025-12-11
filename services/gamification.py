@@ -69,10 +69,16 @@ class GamificationService:
         stats_doc = db.collection('balances').document(user_id).get()
         if stats_doc.exists:
             stats = stats_doc.to_dict()
-            if stats['totalTrades'] == 1:
+            total_trades = stats.get('totalTrades', 0)
+            if total_trades == 1:
                 self.unlock_achievement(user_id, 'FIRST_TRADE')
-            if stats['totalTrades'] == 10:
+            if total_trades == 10:
                 self.unlock_achievement(user_id, 'TRADER_10')
+
+            # Growth check (Simple: if totalPortfolioValue > 10500 i.e. 5%)
+            # Base is 10000.
+            if stats.get('totalPortfolioValue', 0) >= 10500:
+                self.unlock_achievement(user_id, 'GROWTH_5')
 
         # 2. Early Bird
         now = datetime.datetime.now()
@@ -83,6 +89,24 @@ class GamificationService:
         portfolio_count = len(list(db.collection('users').document(user_id).collection('portfolio').stream()))
         if portfolio_count >= 5:
             self.unlock_achievement(user_id, 'DIVERSIFY_5')
+
+        # 4. Profit/Loss Checks (Requires trade outcome, tricky for async, but if SELL we can check)
+        # We need to know if this trade was a Sell and if it was profitable.
+        # trade_result just has success/price.
+        # We will check the recent transaction log or if we can pass more data.
+        # For now, let's look up the transaction if ID provided.
+        if trade_result.get('transaction_id'):
+            tx_doc = db.collection('transactions').document(trade_result['transaction_id']).get()
+            if tx_doc.exists:
+                tx = tx_doc.to_dict()
+                if tx['type'] == 'SELL':
+                    pnl = tx.get('realizedPnL', 0)
+                    if pnl > 0:
+                        self.unlock_achievement(user_id, 'FIRST_PROFIT')
+                        if pnl >= 100:
+                            self.unlock_achievement(user_id, 'PROFIT_100')
+                    elif pnl < 0:
+                        self.unlock_achievement(user_id, 'FIRST_LOSS')
 
     def check_daily_login(self, user_id):
         # Update streak
@@ -104,6 +128,8 @@ class GamificationService:
 
         if streak >= 3:
             self.unlock_achievement(user_id, 'DAILY_LOGIN_3')
+        if streak >= 7:
+            self.unlock_achievement(user_id, 'WEEKLY_ACTIVE')
 
         ref.set({
             'lastLogin': today,

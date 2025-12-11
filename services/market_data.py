@@ -16,16 +16,37 @@ class MarketDataService:
         # Fetch from yfinance
         try:
             ticker = yf.Ticker(symbol)
-            # regularMarketPrice is often nested or deprecated, use fast_info or info
-            # fast_info is faster
-            if hasattr(ticker, 'fast_info'):
-                price = ticker.fast_info['last_price']
-            else:
-                price = ticker.info.get('regularMarketPrice') or ticker.info.get('currentPrice')
+
+            # 1. Try fast_info
+            try:
+                if hasattr(ticker, 'fast_info'):
+                    # Sometimes accessing last_price triggers internal fetching error
+                    price = ticker.fast_info.last_price
+                else:
+                    price = None
+            except Exception:
+                price = None
+
+            # 2. Try info dict
+            if not price:
+                try:
+                    price = ticker.info.get('regularMarketPrice') or ticker.info.get('currentPrice') or ticker.info.get('previousClose')
+                except Exception:
+                    pass
+
+            # 3. Try history
+            if not price:
+                try:
+                    hist = ticker.history(period="1d")
+                    if not hist.empty:
+                        price = hist['Close'].iloc[-1]
+                except Exception:
+                    pass
 
             if price:
                 self._update_cache(symbol, price)
                 return price
+
         except Exception as e:
             print(f"Error fetching price for {symbol}: {e}")
             return None
