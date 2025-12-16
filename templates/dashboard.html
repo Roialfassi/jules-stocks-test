@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - TradeSim{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom: 1rem;">Dashboard</h1>
+
+<div class="dashboard-grid">
+    <div class="left-col">
+        <div class="card">
+            <h3>Portfolio Overview</h3>
+            <div class="stats-grid" style="margin-top: 1rem;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Value</div>
+                    <div class="stat-value">${{ "%.2f"|format(balance.totalPortfolioValue) }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Cash</div>
+                    <div class="stat-value">${{ "%.2f"|format(balance.cashBalance) }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total P&L</div>
+                    <div class="stat-value {{ 'positive' if (balance.totalRealizedPnL + balance.totalUnrealizedPnL) >= 0 else 'negative' }}">
+                        ${{ "%.2f"|format(balance.totalRealizedPnL + balance.totalUnrealizedPnL) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Activity</h3>
+            <!-- Assuming activity log is passed or we can load it. For now, simple text. -->
+             <p>Check your portfolio for details.</p>
+        </div>
+    </div>
+
+    <div class="right-col">
+        <!-- Gamification Widgets -->
+        <div class="card gamification-element achievements-section" data-group-show="2,3,4">
+            <h3>Recent Achievements</h3>
+            <div id="achievement-list">
+                {% if achievements %}
+                    {% for ach in achievements %}
+                    <div class="xp-badge" style="display: block; margin-bottom: 5px; background-color: var(--success-color);">
+                        {{ ach.name }} (+{{ ach.pointsAwarded if ach.pointsAwarded else 'XP' }})
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>Start trading to unlock badges!</p>
+                {% endif %}
+            </div>
+            <a href="{{ url_for('profile') }}" class="btn" style="margin-top: 1rem; font-size: 0.8rem;">View All</a>
+        </div>
+
+        <div class="card gamification-element leaderboard-widget" data-group-show="4">
+            <h3>Leaderboard</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>User</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if leaderboard %}
+                        {% for entry in leaderboard %}
+                        <tr class="{{ 'positive' if entry.username == user.username else '' }}">
+                            <td>{{ entry.rank }}</td>
+                            <td>{{ entry.username }}</td>
+                            <td>${{ "%.2f"|format(entry.value) }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="3">Leaderboard loading...</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>Market Summary</h3>
+            <p><strong>BTC-USD:</strong> <span class="loading-price" data-symbol="BTC-USD">Loading...</span></p>
+            <p><strong>ETH-USD:</strong> <span class="loading-price" data-symbol="ETH-USD">Loading...</span></p>
+            <p><strong>AAPL:</strong> <span class="loading-price" data-symbol="AAPL">Loading...</span></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

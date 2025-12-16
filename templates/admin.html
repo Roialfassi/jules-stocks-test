@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+<h1>Researcher Admin Panel</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>User Management</h3>
+        <p>Total Users: {{ stats.totalUsers }}</p>
+        <div style="margin-bottom: 1rem;">
+            <h4>Group Distribution:</h4>
+            <ul>
+                {% for group, count in stats.groups.items() %}
+                <li>Group {{ group }}: {{ count }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <a href="{{ url_for('export_users') }}" class="btn">Export User Data (CSV)</a>
+    </div>
+
+    <div class="card">
+        <h3>Research Data</h3>
+        <a href="{{ url_for('export_trades') }}" class="btn">Export Trading Logs</a>
+        <button class="btn" onclick="alert('Survey export not implemented yet')">Export Surveys</button>
+    </div>
+</div>
+{% endblock %}

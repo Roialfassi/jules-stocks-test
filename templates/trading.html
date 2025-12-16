@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Trading - TradeSim{% endblock %}
+
+{% block content %}
+<h1>Trading</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>Place Order</h3>
+        <div class="form-group">
+            <label>Search Asset</label>
+            <div style="display: flex;">
+                <input type="text" id="asset-search" class="form-control" placeholder="e.g. AAPL, BTC-USD">
+                <button class="btn" id="search-btn" style="margin-left: 10px;">Search</button>
+            </div>
+        </div>
+
+        <div id="asset-info" style="display: none; margin: 1rem 0; padding: 1rem; background: #f9f9f9; border-radius: 8px;">
+            <h4 id="asset-symbol"></h4>
+            <div style="font-size: 1.5rem; font-weight: bold;" id="asset-price"></div>
+            <p id="asset-name"></p>
+        </div>
+
+        <div id="trade-form" style="display: none;">
+            <div class="form-group">
+                <label>Action</label>
+                <select id="trade-action" class="form-control">
+                    <option value="BUY">Buy</option>
+                    <option value="SELL">Sell</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Quantity</label>
+                <input type="number" id="trade-qty" class="form-control" min="0.000001" step="any" value="1">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <strong>Total Estimate:</strong> <span id="trade-total">$0.00</span>
+            </div>
+
+            <button id="confirm-trade-btn" class="btn btn-success">Execute Order</button>
+        </div>
+
+        <div id="trade-msg" style="margin-top: 1rem;"></div>
+    </div>
+
+    <div class="card">
+        <h3>Price Chart</h3>
+        <canvas id="priceChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/trading.js') }}"></script>
+{% endblock %}
